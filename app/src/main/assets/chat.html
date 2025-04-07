@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SiliconFlow API 测试</title>
+    <script>
+        // 配置 MathJax
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            svg: {
+                fontCache: 'global',
+                scale: 1,  // 基础缩放比例
+            },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady();
+                }
+            }
+        };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .app-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            transition: transform 0.3s ease;
+        }
+
+        .title-bar {
+            background-color: #ffffff;
+            color: #000000;
+            padding: 0 16px;
+            font-size: 22px;
+            font-weight: 500;
+            text-align: left;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            z-index: 1000;
+        }
+        
+        #chatBox {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 10px;
+            padding-bottom: 0;
+            background-color: #ffffff;
+        }
+        
+        .message {
+            margin: 8px 0;
+            padding: 12px 16px;
+            border-radius: 16px;
+            max-width: 85%;
+            word-wrap: break-word;
+            line-height: 1.5;
+            font-size: 16px;
+            white-space: pre-wrap;
+        }
+        
+        .user {
+            background-color: #2196f3;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .bot {
+            background-color: #f5f5f5;
+            color: #000000;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+            overflow-x: auto;
+        }
+        
+        /* MathJax 样式调整 */
+        .bot .MathJax {
+            margin: 4px 0;
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        .bot mjx-container {
+            max-width: 100% !important;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 2px 0;
+        }
+
+        .bot mjx-container::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .bot mjx-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 2px;
+        }
+
+        .bot mjx-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 2px;
+        }
+
+        .bot mjx-container svg {
+            max-width: none;
+            min-width: auto;
+        }
+        
+        #inputArea {
+            background-color: #ffffff;
+            border-top: 1px solid #e0e0e0;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 56px;
+            width: 100%;
+        }
+        
+        #userInput {
+            flex: 1;
+            height: 40px;
+            padding: 8px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 20px;
+            font-size: 16px;
+            outline: none;
+            background-color: #f5f5f5;
+        }
+        
+        #userInput:focus {
+            border-color: #2196f3;
+            background-color: white;
+        }
+        
+        button {
+            height: 40px;
+            padding: 0 20px;
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        button:active {
+            background-color: #1976d2;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 8px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="title-bar">AI 助手</div>
+        <div id="chatBox"></div>
+        <div class="loading" id="loading">正在思考...</div>
+        <div id="inputArea">
+            <input type="text" id="userInput" placeholder="输入消息...">
+            <button onclick="sendMessage()">发送</button>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'sk-gforaiawdstqsauxbnpreuxtilwpxkmqvonuwhkaexxjrdxe';
+        const API_URL = 'https://api.siliconflow.cn/v1/chat/completions';
+        let messages = [
+            {
+                role: "system",
+                content: "你是一个智能数学问答助手，请始终使用中文回复用户，格式如下\n答案：\n（正确答案）\n过程：\n（解题过程仅数学结构）\n解释：\n，并保持清晰的结构和格式。如果涉及数学结构，请使用Latex表达式。"
+            }
+        ];
+
+        let lastViewportHeight = window.innerHeight;
+
+        // 监听视窗大小变化（输入法弹出/收起）
+        window.visualViewport.addEventListener('resize', function() {
+            const viewport = window.visualViewport;
+            const container = document.querySelector('.app-container');
+            const keyboardHeight = lastViewportHeight - viewport.height;
+            
+            if (keyboardHeight > 0) {
+                container.style.transform = `translateY(-${keyboardHeight}px)`;
+            } else {
+                container.style.transform = 'none';
+                lastViewportHeight = viewport.height;
+            }
+
+            const chatBox = document.getElementById('chatBox');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+
+        function renderMath(element) {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise([element]).catch((err) => {
+                    console.log('MathJax error:', err);
+                });
+            } else {
+                // 如果 MathJax 还没有加载完成，等待一段时间后重试
+                setTimeout(() => renderMath(element), 500);
+            }
+        }
+
+        function addMessage(text, isUser) {
+            const chatBox = document.getElementById('chatBox');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+            
+            // 处理数学公式
+            if (!isUser) {
+                // 替换行间公式
+                text = text.replace(/\\\[(.*?)\\\]/g, '$$$$1$$');
+                text = text.replace(/\$\$(.*?)\$\$/g, '$$$$1$$');
+                
+                // 替换行内公式
+                text = text.replace(/\\\((.*?)\\\)/g, '$$$1$');
+                text = text.replace(/\$(.*?)\$/g, '$$$1$');
+            }
+            
+            messageDiv.innerHTML = text;
+            chatBox.appendChild(messageDiv);
+            
+            // 如果是机器人消息，渲染数学公式
+            if (!isUser) {
+                renderMath(messageDiv);
+            }
+            
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            addMessage(text, true);
+            messages.push({ role: "user", content: text });
+            input.value = '';
+            showLoading();
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: "Qwen/Qwen2.5-VL-72B-Instruct",
+                        messages: messages,
+                        max_tokens: 1000
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const botMessage = data.choices[0].message.content;
+                
+                addMessage(botMessage, false);
+                messages.push({ role: "assistant", content: botMessage });
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage(`错误: ${error.message}`, false);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 添加回车键发送功能
+        document.getElementById('userInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // 自动聚焦输入框
+        document.getElementById('userInput').focus();
+    </script>
+</body>
+</html> 
