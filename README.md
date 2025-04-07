@@ -111,14 +111,12 @@
 
 ## 许可证
 
-本项目采用 [MIT许可证](LICENSE)。
-
 ## 联系方式
 
 如有问题或建议，请通过以下方式联系我们：
 
 - 电子邮件：[ranifarya714@gmail.com]
-- GitHub Issues：[项目Issues页面链接]
+- GitHub Issues：[(https://github.com/sloumver/aijsq)]
 
 ## 致谢
 
